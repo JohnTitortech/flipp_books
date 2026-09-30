@@ -47,7 +47,8 @@ async function up(blob,name,folder){const f=new FormData();f.append("file",blob,
 async function pdfPages(file){const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
  for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i),v0=p.getViewport({scale:1}),v=p.getViewport({scale:Math.min(3,3000/Math.max(v0.width,v0.height))}),c=document.createElement("canvas");
   c.width=v.width;c.height=v.height;await p.render({canvasContext:c.getContext("2d"),viewport:v}).promise;
-  out.push(await new Promise(r=>c.toBlob(r,"image/jpeg",.93)))}return out}
+  let o=await new Promise(r=>c.toBlob(r,"image/png"));if(o.size>MAX)o=await new Promise(r=>c.toBlob(r,"image/jpeg",.93));out.push(o)}return out}
+const MAX=9.5e6;
 async function fit(blob,max=3000){const bm=await createImageBitmap(blob),k=Math.min(1,max/Math.max(bm.width,bm.height)),
  c=document.createElement("canvas");c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);
  const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(bm,0,0,c.width,c.height);
@@ -57,9 +58,9 @@ $("go").onclick=async()=>{const fs=[...$("file").files],title=$("title").value.t
  if(!fs.length)return say("Pilih file dulu.");$("go").disabled=true;
  try{let blobs;
   if(fs[0].type==="application/pdf"){say("Membaca PDF…");blobs=await pdfPages(fs[0])}
-  else{blobs=[];const o=fs.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));for(let i=0;i<o.length;i++){say(`Mengecilkan gambar ${i+1} dari ${o.length}…`);blobs.push(await fit(o[i]))}}
+  else{blobs=[];const o=fs.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));for(let i=0;i<o.length;i++){say(`Memeriksa gambar ${i+1} dari ${o.length}…`);blobs.push(o[i].size<=MAX?o[i]:await fit(o[i]))}}
   const folder=CFG.folder+"/"+Date.now(),pages=[];
-  for(let i=0;i<blobs.length;i++){say(`Mengunggah halaman ${i+1} dari ${blobs.length}…`);pages.push(await up(blobs[i],`p${i+1}.jpg`,folder));prog((i+1)/blobs.length)}
+  for(let i=0;i<blobs.length;i++){say(`Mengunggah halaman ${i+1} dari ${blobs.length}…`);pages.push(await up(blobs[i],`p${i+1}.${{"image/png":"png","image/webp":"webp"}[blobs[i].type]||"jpg"}`,folder));prog((i+1)/blobs.length)}
   await db.collection("flipbooks").add({title,pages,owner:user.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
   say("Selesai. Flipbook muncul di daftar di bawah.");$("file").value="";$("title").value=""
  }catch(e){say("Gagal: "+e.message)}$("go").disabled=false};
