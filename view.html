@@ -9,12 +9,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script>
-const $=id=>document.getElementById(id),th=(u,w)=>u.replace("/upload/",`/upload/f_auto,q_auto,w_${w}/`);
+const $=id=>document.getElementById(id),th=(u,w)=>u.replace("/upload/",`/upload/f_auto,q_auto:best,c_limit,w_${w}/`);
 (async()=>{try{
  firebase.initializeApp(CFG.firebase);
  const d=await firebase.firestore().collection("flipbooks").doc(new URLSearchParams(location.search).get("id")||"x").get();
  if(!d.exists)throw 0;const b=d.data();document.title=b.title;
- const N=b.pages.length,ar=b.pages[0].w/b.pages[0].h,urls=b.pages.map(p=>th(p.url,1600));
+ const N=b.pages.length,ar=b.pages[0].w/b.pages[0].h,urls=b.pages.map(p=>th(p.url,2400));
  let pf=null,cur=0,t;
  const upd=()=>$("cnt").textContent=`${pf.getCurrentPageIndex()+1} / ${N}`;
  const build=()=>{
