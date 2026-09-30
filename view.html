@@ -1,32 +1,36 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Brosur</title>
 <link rel="stylesheet" href="style.css"></head><body class="v">
-<div id="stage"></div>
+<div id="stage"><div id="book"><img id="a" alt="Halaman brosur"><img id="b" alt=""></div></div>
 <div id="bar"><a href="index.html">Galeri</a><button id="pv" aria-label="Halaman sebelumnya">Sebelumnya</button><span id="cnt">–</span>
 <button id="nx" aria-label="Halaman berikutnya">Berikutnya</button></div>
-<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script>
-const $=id=>document.getElementById(id),th=(u,w)=>u.replace("/upload/",`/upload/f_auto,q_auto:best,c_limit,w_${w}/`);
+const $=id=>document.getElementById(id);
 (async()=>{try{
  firebase.initializeApp(CFG.firebase);
  const d=await firebase.firestore().collection("flipbooks").doc(new URLSearchParams(location.search).get("id")||"x").get();
- if(!d.exists)throw 0;const b=d.data();document.title=b.title;
- const N=b.pages.length,ar=b.pages[0].w/b.pages[0].h,urls=b.pages.map(p=>th(p.url,2400));
- let pf=null,cur=0,t;
- const upd=()=>$("cnt").textContent=`${pf.getCurrentPageIndex()+1} / ${N}`;
- const build=()=>{
-  if(pf){cur=pf.getCurrentPageIndex();pf.destroy()}
-  const st=$("stage");st.innerHTML="";
-  const w=Math.floor(Math.min(st.clientWidth-16,(st.clientHeight-16)*ar)),h=Math.floor(w/ar),el=document.createElement("div");
-  el.style.cssText=`width:${w}px;height:${h}px`;st.append(el);
-  pf=new St.PageFlip(el,{width:w,height:h,size:"fixed",usePortrait:true,showCover:false,maxShadowOpacity:.3,flippingTime:600,mobileScrollSupport:false});
-  pf.loadFromImages(urls);pf.on("flip",upd);if(cur)pf.turnToPage(cur);upd()};
- build();
- addEventListener("resize",()=>{clearTimeout(t);t=setTimeout(build,200)});
- $("pv").onclick=()=>pf.flipPrev();$("nx").onclick=()=>pf.flipNext();
- addEventListener("keydown",e=>{if(e.key==="ArrowRight")pf.flipNext();if(e.key==="ArrowLeft")pf.flipPrev()});
+ if(!d.exists)throw 0;const bk=d.data();document.title=bk.title;
+ const P=bk.pages,N=P.length,ar=P[0].w/P[0].h,a=$("a"),b=$("b"),book=$("book");
+ let i=0,busy=false,W=1200,t;
+ const src=k=>P[k].url.replace("/upload/",`/upload/f_auto,q_auto:best,c_limit,w_${W}/`);
+ const upd=()=>{$("cnt").textContent=`${i+1} / ${N}`;[i-1,i+1].forEach(k=>{if(k>=0&&k<N)new Image().src=src(k)})};
+ const size=()=>{const s=$("stage"),w=Math.floor(Math.min(s.clientWidth-16,(s.clientHeight-16)*ar));
+  book.style.width=w+"px";book.style.height=Math.floor(w/ar)+"px";
+  W=Math.min(3000,Math.ceil(w*(devicePixelRatio||1)/400)*400);a.src=src(i);upd()};
+ const show=(op,tr,x)=>{b.style.transition="none";b.style.opacity=op;b.style.transform=tr;void b.offsetWidth;if(x)b.style.transition=""};
+ const next=()=>{if(busy||i>=N-1)return;busy=true;b.src=src(i);a.src=src(i+1);show(1,"none",1);
+  requestAnimationFrame(()=>{b.style.transform="rotateY(-110deg)";b.style.opacity=0});
+  setTimeout(()=>{i++;busy=false;upd()},620)};
+ const prev=()=>{if(busy||i<=0)return;busy=true;b.src=src(i-1);show(1,"rotateY(-110deg)",1);
+  requestAnimationFrame(()=>{b.style.transform="none"});
+  setTimeout(async()=>{i--;a.src=src(i);await a.decode().catch(()=>0);show(0,"none");busy=false;upd()},620)};
+ size();addEventListener("resize",()=>{clearTimeout(t);t=setTimeout(size,200)});
+ $("nx").onclick=next;$("pv").onclick=prev;
+ addEventListener("keydown",e=>{if(e.key==="ArrowRight")next();if(e.key==="ArrowLeft")prev()});
+ let x0=null;$("stage").onpointerdown=e=>x0=e.clientX;
+ $("stage").onpointerup=e=>{if(x0===null)return;const dx=e.clientX-x0;x0=null;if(dx<-50)next();if(dx>50)prev()};
 }catch(e){$("stage").innerHTML="<p>Brosur tidak ditemukan.</p>"}})();
 </script></body></html>
