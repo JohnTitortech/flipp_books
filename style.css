@@ -35,3 +35,5 @@ body.v{background:#10151c;color:#e8edf3;height:100vh;height:100dvh;overflow:hidd
 .card div{padding:12px}.card b{display:block;line-height:1.3}.card small{color:var(--mute)}
 .card:hover{border-color:var(--acc)}
 main.wide{max-width:1000px}
+#bar a{background:#1d2631;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-weight:600}
+#cnt{min-width:56px;text-align:center}
