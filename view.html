@@ -1,9 +1,9 @@
 <!doctype html><html lang="id"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Flipbook</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Brosur</title>
 <link rel="stylesheet" href="style.css"></head><body class="v">
-<a id="ttl" href="index.html" style="color:inherit;text-decoration:none"></a><div id="stage"><div id="book"></div></div>
-<div id="bar"><button id="pv" aria-label="Halaman sebelumnya">Sebelumnya</button><span id="cnt">–</span>
-<button id="nx" aria-label="Halaman berikutnya">Berikutnya</button><button id="fs">Layar penuh</button></div>
+<div id="stage"></div>
+<div id="bar"><a href="index.html">Galeri</a><button id="pv" aria-label="Halaman sebelumnya">Sebelumnya</button><span id="cnt">–</span>
+<button id="nx" aria-label="Halaman berikutnya">Berikutnya</button></div>
 <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -13,13 +13,20 @@ const $=id=>document.getElementById(id),th=(u,w)=>u.replace("/upload/",`/upload/
 (async()=>{try{
  firebase.initializeApp(CFG.firebase);
  const d=await firebase.firestore().collection("flipbooks").doc(new URLSearchParams(location.search).get("id")||"x").get();
- if(!d.exists)throw 0;const b=d.data();document.title=b.title;$("ttl").textContent=b.title;
- const w=550,h=Math.round(w*b.pages[0].h/b.pages[0].w),N=b.pages.length;
- const pf=new St.PageFlip($("book"),{width:w,height:h,size:"stretch",minWidth:260,maxWidth:900,minHeight:360,maxHeight:1300,showCover:true,usePortrait:true,maxShadowOpacity:.4,mobileScrollSupport:false});
- pf.loadFromImages(b.pages.map(p=>th(p.url,1400)));
- const upd=()=>$("cnt").textContent=`${pf.getCurrentPageIndex()+1} / ${N}`;upd();pf.on("flip",upd);
+ if(!d.exists)throw 0;const b=d.data();document.title=b.title;
+ const N=b.pages.length,ar=b.pages[0].w/b.pages[0].h,urls=b.pages.map(p=>th(p.url,1600));
+ let pf=null,cur=0,t;
+ const upd=()=>$("cnt").textContent=`${pf.getCurrentPageIndex()+1} / ${N}`;
+ const build=()=>{
+  if(pf){cur=pf.getCurrentPageIndex();pf.destroy()}
+  const st=$("stage");st.innerHTML="";
+  const w=Math.floor(Math.min(st.clientWidth-16,(st.clientHeight-16)*ar)),h=Math.floor(w/ar),el=document.createElement("div");
+  el.style.cssText=`width:${w}px;height:${h}px`;st.append(el);
+  pf=new St.PageFlip(el,{width:w,height:h,size:"fixed",usePortrait:true,showCover:false,maxShadowOpacity:.3,flippingTime:600,mobileScrollSupport:false});
+  pf.loadFromImages(urls);pf.on("flip",upd);if(cur)pf.turnToPage(cur);upd()};
+ build();
+ addEventListener("resize",()=>{clearTimeout(t);t=setTimeout(build,200)});
  $("pv").onclick=()=>pf.flipPrev();$("nx").onclick=()=>pf.flipNext();
- $("fs").onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
  addEventListener("keydown",e=>{if(e.key==="ArrowRight")pf.flipNext();if(e.key==="ArrowLeft")pf.flipPrev()});
-}catch(e){$("stage").innerHTML="<p>Flipbook tidak ditemukan.</p>"}})();
+}catch(e){$("stage").innerHTML="<p>Brosur tidak ditemukan.</p>"}})();
 </script></body></html>
