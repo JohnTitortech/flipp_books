@@ -1,0 +1,61 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Flipbook Brosur</title>
+<link rel="stylesheet" href="style.css"></head><body><main>
+<h1>Flipbook Brosur</h1><p class="sub">Unggah PDF atau gambar, dapatkan link buku yang bisa dibalik.</p>
+<div id="login" class="box"><label for="usr">Username</label><input id="usr" type="text" autocomplete="username">
+ <label for="pwd">Password</label><input id="pwd" type="password" autocomplete="current-password">
+ <button id="in">Masuk</button><div id="lmsg" role="status" style="margin-top:12px;color:#b42318"></div></div>
+<div id="app" hidden>
+ <div class="box">
+  <label for="title">Judul</label><input id="title" type="text" placeholder="Contoh: Brosur Hiace 2026">
+  <label for="file">File (satu PDF, atau beberapa PNG/JPG berurutan nama)</label>
+  <input id="file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" multiple>
+  <button id="go">Buat flipbook</button> <button id="out" class="ghost">Keluar</button>
+  <div class="bar" id="bar"><i id="fill"></i></div><div id="msg" role="status"></div>
+ </div>
+ <h2>Flipbook kamu</h2><div id="list" class="box"><small>Belum ada flipbook.</small></div>
+</div></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+firebase.initializeApp(CFG.firebase);const auth=firebase.auth(),db=firebase.firestore();
+const $=id=>document.getElementById(id);let user=null,unsub=null;
+const th=(u,w)=>u.replace("/upload/",`/upload/f_auto,q_auto,w_${w}/`);
+const say=t=>$("msg").textContent=t, prog=p=>{$("bar").style.display="block";$("fill").style.width=p*100+"%"};
+const em=u=>u.includes("@")?u:u+"@flipbook.local";
+const login=()=>auth.signInWithEmailAndPassword(em($("usr").value.trim()),$("pwd").value).catch(()=>$("lmsg").textContent="Username atau password salah.");
+$("in").onclick=login;$("pwd").onkeydown=e=>e.key==="Enter"&&login();
+$("out").onclick=()=>auth.signOut();
+auth.onAuthStateChanged(u=>{user=u;$("login").hidden=!!u;$("app").hidden=!u;unsub&&unsub();if(u)watch()});
+function watch(){unsub=db.collection("flipbooks").where("owner","==",user.uid).onSnapshot(s=>{
+ const d=s.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+ $("list").innerHTML=d.length?"":"<small>Belum ada flipbook.</small>";
+ d.forEach(b=>{const url=new URL("view.html?id="+b.id,location.href).href,r=document.createElement("div");r.className="item";
+  r.innerHTML=`<img alt="" src="${th(b.pages[0].url,120)}"><div class="t"><b></b><small>${b.pages.length} halaman</small></div>
+  <a class="btn" href="${url}" target="_blank">Buka</a><button class="ghost" data-c>Salin link</button><button class="ghost" data-d>Hapus</button>`;
+  r.querySelector("b").textContent=b.title;
+  r.querySelector("[data-c]").onclick=e=>{navigator.clipboard.writeText(url);e.target.textContent="Tersalin"};
+  r.querySelector("[data-d]").onclick=()=>confirm("Hapus flipbook ini?")&&db.collection("flipbooks").doc(b.id).delete();
+  $("list").append(r)})})}
+async function up(blob,name,folder){const f=new FormData();f.append("file",blob,name);f.append("upload_preset",CFG.uploadPreset);f.append("folder",folder);
+ const r=await fetch(`https://api.cloudinary.com/v1_1/${CFG.cloudName}/image/upload`,{method:"POST",body:f});
+ const j=await r.json();if(!r.ok)throw new Error(j.error?.message||"Upload gagal");return{url:j.secure_url,w:j.width,h:j.height}}
+async function pdfPages(file){const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
+ for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i),v=p.getViewport({scale:2}),c=document.createElement("canvas");
+  c.width=v.width;c.height=v.height;await p.render({canvasContext:c.getContext("2d"),viewport:v}).promise;
+  out.push(await new Promise(r=>c.toBlob(r,"image/jpeg",.9)))}return out}
+$("go").onclick=async()=>{const fs=[...$("file").files],title=$("title").value.trim()||"Tanpa judul";
+ if(!fs.length)return say("Pilih file dulu.");$("go").disabled=true;
+ try{let blobs;
+  if(fs[0].type==="application/pdf"){say("Membaca PDF…");blobs=await pdfPages(fs[0])}
+  else blobs=fs.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  const folder=CFG.folder+"/"+Date.now(),pages=[];
+  for(let i=0;i<blobs.length;i++){say(`Mengunggah halaman ${i+1} dari ${blobs.length}…`);pages.push(await up(blobs[i],`p${i+1}.jpg`,folder));prog((i+1)/blobs.length)}
+  await db.collection("flipbooks").add({title,pages,owner:user.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  say("Selesai. Flipbook muncul di daftar di bawah.");$("file").value="";$("title").value=""
+ }catch(e){say("Gagal: "+e.message)}$("go").disabled=false};
+</script></body></html>
